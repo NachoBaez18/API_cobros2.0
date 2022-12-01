@@ -120,7 +120,7 @@ class PedidoController extends BaseController
      */
     public function show($id)
     {
-        $pedido = Pedido::find($id);
+        $pedido = Pedido::find($id)->with(['detalles' ]);
 
         if (is_object($pedido)) {
             return $this->sendResponse(true, 'Se listaron exitosamente los registros', $pedido, 200);
@@ -278,15 +278,20 @@ class PedidoController extends BaseController
                            $fecha = new Carbon('America/Asuncion');
                            $fechaa =$fecha->subHour(5);
                 $q->where('fecha_vencimiento', '=',$fechaa->format('Y-m-d'))
-                ->where('cancelado', '=', 'N');
+                ->where(function($or){
+                    $or->orWhere('cancelado','N');
+                });
             })->with(['cliente','detalles'  => function ($query) {
             $fechaVencimiento =Carbon::now();
                         $fecha = new Carbon('America/Asuncion');
                            $fechaa =$fecha->subHour(5);
             $query->where('fecha_vencimiento', '=', $fechaa->format('Y-m-d'))
-            ->where('cancelado', '=', 'N');
+            ->where(function($or){
+                $or->orWhere('cancelado','N');
+            });
             
     }])->orderBy('orden', 'asc');
+   // return $query->toSql();
 
         $paginar = $request->query('paginar');
         $listar = (boolval($paginar)) ? 'paginate' : 'get';

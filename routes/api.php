@@ -49,6 +49,8 @@ Route::group(['prefix' => 'pedido'], function () {
    Route::get('deudoresMora',[PedidoController::class,'deudoresMora']);
    Route::get('ultimo',[PedidoController::class,'ultimoArqueo']);
    Route::resource('detalle', DetallePedidoController::class);
+   Route::get('getDetallesNoPagados/{id_pedido}', [DetallePedidoController::class,'getDetalles']); 
+   Route::get('getDetallesAll/{id_pedido}', [DetallePedidoController::class,'getDetallesAll']); 
    Route::put('pagadoTotal/{id}',[DetallePedidoController::class,'pagadoTotal']);
    Route::put('pagadoParcial/{id}',[DetallePedidoController::class,'pagadoParcial']);
    Route::post('pagadoParcialMora',[DetallePedidoController::class,'pagoParcialMora']);
@@ -60,24 +62,11 @@ Route::group(['prefix' => 'pedido'], function () {
    Route::resource('mora', MoraController::class);
    Route::get('reporte/{id}',[PedidoController::class,'pagarePdf']);
    Route::post('orden',[PedidoController::class,'orden']);
+   Route::post('detalle/rollback',[DetallePedidoController::class,'rollback']);
 });
 
 Route::group(['prefix' => 'arqueo'], function () {
     Route::resource('arqueos',ArqueoController::class);
     Route::get('ultimo',[ArqueoController::class,'ultimoArqueo']);
     Route::put('cerrarCaja/{id}',[ArqueoController::class,'cerrarCaja']);
- });
-
- Route::get('test',function(){
-
-    $idPedido = 45;
-
-   $detalle = DetallePedido::where('id_pedido',$idPedido)
-                            ->where('cancelado','N')
-                            ->orderBy('id', 'asc')
-                                ->first();
-
-   return $detalle;
-   
-   
  });

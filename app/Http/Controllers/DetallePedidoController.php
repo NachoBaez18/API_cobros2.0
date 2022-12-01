@@ -19,6 +19,7 @@ class DetallePedidoController extends BaseController
      */
     public function index(Request $request)
     {
+        //return $request;
         $query = DetallePedido::with(['pedido' => function ($querys){
             $querys->orderBy('fecha_entrega','desc');
         }]);
@@ -248,6 +249,10 @@ class DetallePedidoController extends BaseController
         $arqueo->cobrado =  $arqueo->cobrado + $monto;
         $arqueo->update();
 
+        //le ponemos la fecha de la siguente cuota para que le aparezca que debe mora
+        // $detalle_fecha = DetallePedido::where('id_pedido',$id_pedido)->where('id',$id + 1)->first();
+        // $fecha_nueva = $detalle_fecha ? $detalle_fecha->fecha_vencimiento : $fecha_vencimiento;
+
 
         $detallepedido = DetallePedido::find($id);
         if ($detallepedido) {
@@ -259,6 +264,7 @@ class DetallePedidoController extends BaseController
             $detallepedido->mora =$mora;
             $detallepedido->moraDias =$moraDias;
             $detallepedido->moraCancelado =$moraCancelado;
+            $detallepedido->id_arqueo = $arqueo->id;
             if ($detallepedido->save()) {
                 
                 return $this->sendResponse(true, 'Detalle actualizado', $detallepedido, 200);
@@ -314,6 +320,7 @@ class DetallePedidoController extends BaseController
             $detallepedido->mora =$mora;
             $detallepedido->moraDias =$moraDias;
             $detallepedido->moraCancelado =$moraCancelado;
+            $detallepedido->id_arqueo = $arqueo->id;
 
             //sentecia para darle Cuotas totalmente pagada osea el pedido
             $pedido = Pedido::find($id_pedido);
@@ -371,6 +378,7 @@ class DetallePedidoController extends BaseController
 
     if ($detallepedido) {
         $detallepedido->mora =$mora;
+        $detallepedido->id_arqueo = $arqueo->id;
         if ($detallepedido->save()) {
             return $this->sendResponse(true, 'Detalle actualizado', $detallepedido, 200);
         }
@@ -398,8 +406,117 @@ class DetallePedidoController extends BaseController
             return $this->sendResponse(false, 'No se pudo actualizar fecha', null,400);
 
  }
+ public function getDetalles($id_pedido){
 
-  
+    $detalles = DetallePedido::where('id_pedido',$id_pedido)->where(function($q){
+        $q->orWhere('cancelado','N')->orWhere('moraCancelado','N');
+    })->get();
+     
+    if($detalles){
+        return $this->sendResponse(true, 'Se obtuvieron los detalles', $detalles,200); 
+    }
+    return $this->sendResponse(false, 'No se pudo obtener datos', null,400);
+
+ }
+
+ public function getDetallesAll($id_pedido){
+
+    $detalles = DetallePedido::where('id_pedido',$id_pedido)->get();
+     
+    if($detalles){
+        return $this->sendResponse(true, 'Se obtuvieron los detalles', $detalles,200); 
+    }
+    return $this->sendResponse(false, 'No se pudo obtener datos', null,400);
+
+
+ }
+
+ public function rollback(Request $request){
+
+    $detalles = DetallePedido::where('id',$request->id)->first();
+    $pedido   = Pedido::where('id',$detalles->id_pedido)->first();
+
+    $resta = 0;
+
+    switch($request->accion) {
+        case('total'):
+
+            $detalles->cancelado     = 'N';
+            if($detalles->moraDias > 0){
+                $detalles->moraCancelado = 'N';
+                $pedido->moraCancelado   = 'N';
+                $pedido->save(); 
+            }
+
+            $resta = $detalles->monto + $detalles->mora;
+   
+            
+            $detalles->save();
+            break;
+
+        case('parcial'):
+             
+            $detalles->monto     = ($pedido->monto + ($pedido->monto * 40) / 100) / $pedido->n_cuota;
+            $detalles->cancelado = 'N';
+
+            $resta = $detalles->monto;
+          
+            $detalles->save();
+
+            break;
+
+        case('noPago'):
+
+            $detalles->fecha_vencimiento = Carbon::parse($detalles->fecha_vencimiento)->addDay(-1)->format('Y-m-d');
+            $detalles->mora              = $detalles->mora - 5000;
+            $detalles->moraDias          = $detalles->moraDias - 1;
+ 
+               $detalleCount = DetallePedido::where('id_pedido',$detalles->id_pedido)
+                                            ->where('moraCancelado','N')->count();
+
+                if ($detalles->moraDias == 1){
+                    $detalles->moraCancelado = 'S';
+                }
+                if ($detalleCount == 1){
+                    $pedido->moraCancelado = 'S';
+                    $pedido->save();
+                }                      
+            $detalles->save();
+           
+             break;
+
+        case('moraTotal'):
+             
+            $detalles->moraCancelado = 'N';
+            $pedido->moraCancelado   = 'N';
+            $resta = $detalles->mora;
+            $pedido->save();
+            $detalles->save();
+
+            break;
+
+        case('moraParcial'):
+             
+            $detalles->mora =$detalles->mora + $request->mora;
+            $resta = $request->mora;
+            $detalles->save();
     
+                break;
+        default:
+        $this->sendResponse(true, 'Ocurrio un error en la reversa',null,401);
+    }
 
+    if($detalles){
+        $arqueo   = Arqueo::where('id',$detalles->id_arqueo)->first();
+
+
+        $arqueo->cobrado   = $arqueo->cobrado - $resta;
+        $arqueo->arqueoDia = $arqueo->caja + $arqueo->cobrado - $arqueo->entregado;
+        $arqueo->save();
+
+        return $this->sendResponse(true, 'Se reverso correctamente',null,200);
+    }
+
+ }
+   
 }

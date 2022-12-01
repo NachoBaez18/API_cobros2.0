@@ -45,6 +45,7 @@ class UserController extends BaseController
                 return $this->sendResponse(false,'Unauthorized',null,400);
 
         $user = $request->user();
+     
         $tokenResult = $user->createToken('Personal Access Token');
 
         $token = $tokenResult->token;
@@ -57,7 +58,11 @@ class UserController extends BaseController
         //     'token_type' => 'Bearer',
         //     'expires_at' => Carbon::parse($token->expires_at)->toDateTimeString()
         // ]);
-        return $this->sendResponse(true, 'Usuario registrado',$tokenResult->accessToken, 201);
+        $data = [
+            'token' => $tokenResult->accessToken,
+            'id'    => $user->id
+        ];
+        return $this->sendResponse(true, 'Usuario registrado',$data, 201);
     }
 
     /**

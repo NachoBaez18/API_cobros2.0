@@ -16,7 +16,7 @@ class DetallePedido extends Model
     
 
     protected $fillable =[
-        'id_pedido','fecha_vencimiento', 'monto','cuota_numero','cancelado'	
+        'id_pedido','fecha_vencimiento', 'monto','cuota_numero','cancelado','id_arqueo'
     ];
 
     public function pedido(){
